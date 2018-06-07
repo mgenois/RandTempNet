@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #------------------------------------------
-#-     Random Temporal Networks v0.3      -
+#-     Random Temporal Networks v1.0      -
 #-           by Mathieu GÉNOIS            -
 #-       genois.mathieu@gmail.com         -
 #------------------------------------------
@@ -431,15 +431,15 @@ def tij_to_tijtau(tij_data,dt):
     for lk in list_lk:
         ts = tset[lk]
         delta = np.diff(ts)
-        tau = 1
+        tau = dt
         u = ts[0]
         for k,d in enumerate(delta):
             if d > dt:
                 Output.add_contact(u,lk.i,lk.j,tau)
                 u = ts[k+1]
-                tau = 1
+                tau = dt
             else:
-                tau += 1
+                tau += dt
         Output.add_contact(u,lk.i,lk.j,tau)
     return Output
 #------------------------------------------
@@ -467,15 +467,15 @@ def snapshot_sequence_to_link_timeline(seq_data,dt):
     for lk in list_lk:
         ts = tset[lk]
         delta = np.diff(ts)
-        tau = 1
+        tau = dt
         u = ts[0]
         for k,d in enumerate(delta):
             if d > dt:
                 Output.add_contact(lk.i,lk.j,u,tau)
                 u = ts[k+1]
-                tau = 1
+                tau = dt
             else:
-                tau += 1
+                tau += dt
         Output.add_contact(lk.i,lk.j,u,tau)
     return Output
 #------------------------------------------
@@ -489,7 +489,7 @@ def link_timeline_to_snapshot_sequence(lks_data,dt,t_i=-1,t_f=0):
     if t_i < 0:
         t_i = min([lk[1][0].time for lk in data])
     if t_f == 0:
-        t_f = max([lk[1][-1].time + lk[1][-1].duration for lk in data]) + 1
+        t_f = max([lk[1][-1].time + lk[1][-1].duration for lk in data]) + dt
     Output = snapshot_sequence(t_i,t_f,dt)
     for lk in lks_data.links():
         for c in lks_data.data[lk]:
@@ -616,12 +616,26 @@ def node_timelines(tij_data,dt):
         tset[n].append((u,tau))
     return tset
 #------------------------------------------
-#Computation of the node timelines
+#Computation of the node activities, as numbers of activity periods
 #  tij_data (tij()): object to analyse
 #  dt (int): length of a time step
-def activities(tij_data,dt):
+def activities_0(tij_data,dt):
     ntl_data = node_timelines(tij_data,dt)
     Output = {n:len(ntl_data[n]) for n in ntl_data.keys()}
+    return Output
+#------------------------------------------
+#Computation of the node activities, as equivalent to strengths but for number of contacts instead of weights
+#  tij_data (tij()): object to analyse
+#  dt (int): length of a time step
+def activities(lks_data):
+    nc = number_of_contacts(lks_data)
+    list_lk = [lk.display() for lk in lks_data.links()]
+    n1,n2 = zip(*list_lk)
+    list_n = set(n1+n2)
+    Output = {n:0 for n in list_n}
+    for lk in lks_data.links():
+        Output[lk.i] += nc[lk]
+        Output[lk.j] += nc[lk]
     return Output
 #------------------------------------------
 #Computation of the activity durations list
@@ -682,7 +696,7 @@ def analysis(lks_data,dt,save=True,filename="analysis.pdf"):
     #--activity
     x += w_tl + mx
     ax = fig.add_axes([x,y,w,h])
-    data = activities(tij_data,dt).values()
+    data = activities(lks_data).values()
     bins = 2.**(np.arange(0,np.log2(max(data)),0.5))
     dist = np.histogram(data,bins=bins,density=True)
     ax.loglog(bins[:-1],dist[0],'ko',mew=1.5,mfc='None')
@@ -779,175 +793,14 @@ def analysis(lks_data,dt,save=True,filename="analysis.pdf"):
 #------------------------------------------
 #==========================================
 #------------------------------------------
-#Snapshot sequence representation
-#--All the following functions take a snapshot_sequence as input,
-#  and return a snapshot_sequence.
+#Event shuffling
 #------------------------------------------
-#P__pGt_sgnE (Permutation of active snapshots)
-#  seq_data (snapshot_sequence())
-def P__pGt_sgnE(seq_data):
-    #extraction of snapshot_sequence caracteristics
-    list_time = seq_data.data.keys()
-    list_time.sort()
-    t_i = list_time[0]
-    t_f = list_time[-1]
-    dt = list_time[1] - t_i
-    t_f += dt
-    #snapshots treatment
-    list_S = []
-    #extraction of the active snapshots and their time stamps
-    list_t = []
-    for t,list_link in seq_data.out():
-        if list_link != []:
-            list_t.append(t)
-            list_S.append(list_link)
-    #definition of the new time steps
-    list_t = sample(list_t,len(list_t))
-    #reconstruction
-    Output = snapshot_sequence(t_i,t_f,dt)
-    for t in list_t:
-        list_link = list_S.pop()
-        Output.update_snapshot(t,list_link)
-    return Output
+#==========================================
 #------------------------------------------
-#P__pGt (Permutation of snapshots)
-#  seq_data (snapshot_sequence())
-def P__pGt(seq_data):
-    #extraction of snapshot_sequence caracteristics
-    list_time = seq_data.data.keys()
-    list_time.sort()
-    t_i = list_time[0]
-    t_f = list_time[-1]
-    dt = list_time[1] - t_i
-    t_f += dt
-    #snapshots treatment
-    list_S = []
-    #extraction of the active snapshots
-    for t,list_link in seq_data.out():
-        if list_link != []:
-            list_S.append(list_link)
-    #definition of the new time steps
-    list_t = sample(range(t_i,t_f,dt),len(list_S))
-    #reconstruction
-    Output = snapshot_sequence(t_i,t_f,dt)
-    for t in list_t:
-        list_link = list_S.pop()
-        Output.update_snapshot(t,list_link)
-    return Output
-#------------------------------------------
-#P__isoGt_Phi (Permutation of active node identities in snapshots)
-#  seq_data (snapshot_sequence())
-def P__isoGt_Phi(seq_data):
-    #construction of the new snapshot_sequence
-    list_time = seq_data.data.keys()
-    list_time.sort()
-    t_i = list_time[0]
-    t_f = list_time[-1]
-    dt = list_time[1] - t_i
-    t_f += dt
-    Output = snapshot_sequence(t_i,t_f,dt)
-    #permutation
-    for t,list_link in seq_data.out():
-        if list_link != []:
-            #extraction of active nodes
-            old_nodes = list(set().union(*[lk.display() for lk in list_link]))
-            nN = len(old_nodes)
-            #definition of the mapping from old to new IDs
-            new_nodes = sample(old_nodes,nN)
-            transform = {old_nodes[k]:new_nodes[k] for k in range(nN)}
-            #permutation
-            new_list = []
-            for lk in list_link:
-                new_list.append(link(transform[lk.i],transform[lk.j]))
-            Output.update_snapshot(t,new_list)
-    return Output
-#------------------------------------------
-#P__isoGt (Permutation of node identities in each snapshot)
-#  seq_data (snapshot_sequence())
-def P__isoGt(seq_data):
-    #construction of the new snapshot_sequence
-    list_time = seq_data.data.keys()
-    list_time.sort()
-    t_i = list_time[0]
-    t_f = list_time[-1]
-    dt = list_time[1] - t_i
-    t_f += dt
-    Output = snapshot_sequence(t_i,t_f,dt)
-    #extraction of all active nodes
-    nodes = list(set().union(*[step[1] for step in seq_data.out()]))
-    nodes = list(set().union(*[lk.display() for lk in nodes]))
-    #permutation
-    for t,list_link in seq_data.out():
-        if list_link != []:
-            #extraction of active nodes
-            old_nodes = list(set().union(*[lk.display() for lk in list_link]))
-            nN = len(old_nodes)
-            #definition of the mapping from old to new IDs
-            new_nodes = sample(nodes,nN)
-            transform = {old_nodes[k]:new_nodes[k] for k in range(nN)}
-            #permutation
-            new_list = []
-            for lk in list_link:
-                new_list.append(link(transform[lk.i],transform[lk.j]))
-            Output.update_snapshot(t,new_list)
-    return Output
-#------------------------------------------
-#P__Phi (Permutation of links between active nodes in each snapshot)
-#  seq_data (snapshot_sequence())
-def P__Phi(seq_data):
-    #construction of the new snapshot_sequence
-    list_time = seq_data.data.keys()
-    list_time.sort()
-    t_i = list_time[0]
-    t_f = list_time[-1]
-    dt = list_time[1] - t_i
-    t_f += dt
-    Output = snapshot_sequence(t_i,t_f,dt)
-    #permutation
-    for t,list_link in seq_data.out():
-        if list_link != []:
-            #list of active nodes in the snapshot
-            nodes = list(set().union(*[lk.display() for lk in list_link]))
-            new_list = []
-            #permutation
-            for lk in list_link:
-                i,j = sample(nodes,2)
-                while link(i,j) in new_list:
-                    i,j = sample(nodes,2)
-                new_list.append(link(i,j))
-            Output.update_snapshot(t,new_list)
-    return Output
-#------------------------------------------
-#P__E (Permutation of links in each snapshot)
+#P__E
+# > Breaks contacts into events and shuffles them across all possible links
 #  seq_data (snapshot_sequence())
 def P__E(seq_data):
-    #construction of the new snapshot_sequence
-    list_time = seq_data.data.keys()
-    list_time.sort()
-    t_i = list_time[0]
-    t_f = list_time[-1]
-    dt = list_time[1] - t_i
-    t_f += dt
-    Output = snapshot_sequence(t_i,t_f,dt)
-    #extraction of all active nodes
-    nodes = list(set().union(*[step[1] for step in seq_data.out()]))
-    nodes = list(set().union(*[lk.display() for lk in nodes]))
-    #permutation
-    for t,list_link in seq_data.out():
-        if list_link != []:
-            new_list = []
-            #permutation
-            for lk in list_link:
-                i,j = sample(nodes,2)
-                while link(i,j) in new_list:
-                    i,j = sample(nodes,2)
-                new_list.append(link(i,j))
-            Output.update_snapshot(t,new_list)
-    return Output
-#------------------------------------------
-#P__muE (Global permutation of events)
-#  seq_data (snapshot_sequence())
-def P__muE(seq_data):
     #construction of the new snapshot_sequence
     list_time = seq_data.data.keys()
     list_time.sort()
@@ -972,11 +825,74 @@ def P__muE(seq_data):
         Output.data[t].add_link(i,j)
     return Output
 #------------------------------------------
-#P__k (Permutation of links with degree preservation in each snapshot)
+#==========================================
+#------------------------------------------
+#Snapshot shuffling
+#------------------------------------------
+#==========================================
+#------------------------------------------
+
+#P__A
+# > Permutation of links in each snapshot
+#  seq_data (snapshot_sequence())
+def P__A(seq_data):
+    #construction of the new snapshot_sequence
+    list_time = seq_data.data.keys()
+    list_time.sort()
+    t_i = list_time[0]
+    t_f = list_time[-1]
+    dt = list_time[1] - t_i
+    t_f += dt
+    Output = snapshot_sequence(t_i,t_f,dt)
+    #extraction of all active nodes
+    nodes = list(set().union(*[step[1] for step in seq_data.out()]))
+    nodes = list(set().union(*[lk.display() for lk in nodes]))
+    #permutation
+    for t,list_link in seq_data.out():
+        if list_link != []:
+            new_list = []
+            #permutation
+            for lk in list_link:
+                i,j = sample(nodes,2)
+                while link(i,j) in new_list:
+                    i,j = sample(nodes,2)
+                new_list.append(link(i,j))
+            Output.update_snapshot(t,new_list)
+    return Output
+#------------------------------------------
+#P__A_Phi
+# > Permutation of links between active nodes in each snapshot
+#  seq_data (snapshot_sequence())
+def P__A_Phi(seq_data):
+    #construction of the new snapshot_sequence
+    list_time = seq_data.data.keys()
+    list_time.sort()
+    t_i = list_time[0]
+    t_f = list_time[-1]
+    dt = list_time[1] - t_i
+    t_f += dt
+    Output = snapshot_sequence(t_i,t_f,dt)
+    #permutation
+    for t,list_link in seq_data.out():
+        if list_link != []:
+            #list of active nodes in the snapshot
+            nodes = list(set().union(*[lk.display() for lk in list_link]))
+            new_list = []
+            #permutation
+            for lk in list_link:
+                i,j = sample(nodes,2)
+                while link(i,j) in new_list:
+                    i,j = sample(nodes,2)
+                new_list.append(link(i,j))
+            Output.update_snapshot(t,new_list)
+    return Output
+#------------------------------------------
+#P__d
+# > Permutation of links with degree preservation in each snapshot
 #  seq_data (snapshot_sequence())
 #  link_threshold (int): minimum number of links to use the configuration model algorithm
 #  n_iter (int): parameter for the number of interations in the case of the Sneppen-Maslov algorithm
-def P__k(seq_data,link_threshold=20,n_iter=5):
+def P__d(seq_data,link_threshold=20,n_iter=5):
     #extraction of snapshots to shuffle
     todo = [s for s in seq_data.out() if len(s[1]) > 1]
     for t,list_link in todo:
@@ -1034,17 +950,211 @@ def P__k(seq_data,link_threshold=20,n_iter=5):
                 seq_data.data[t].add_links([(n1,p2),(n2,p1)])
     return seq_data
 #------------------------------------------
+#P__isoGamma
+# > Permutation of node identities in each snapshot
+#  seq_data (snapshot_sequence())
+def P__isoGamma(seq_data):
+    #construction of the new snapshot_sequence
+    list_time = seq_data.data.keys()
+    list_time.sort()
+    t_i = list_time[0]
+    t_f = list_time[-1]
+    dt = list_time[1] - t_i
+    t_f += dt
+    Output = snapshot_sequence(t_i,t_f,dt)
+    #extraction of all active nodes
+    nodes = list(set().union(*[step[1] for step in seq_data.out()]))
+    nodes = list(set().union(*[lk.display() for lk in nodes]))
+    #permutation
+    for t,list_link in seq_data.out():
+        if list_link != []:
+            #extraction of active nodes
+            old_nodes = list(set().union(*[lk.display() for lk in list_link]))
+            nN = len(old_nodes)
+            #definition of the mapping from old to new IDs
+            new_nodes = sample(nodes,nN)
+            transform = {old_nodes[k]:new_nodes[k] for k in range(nN)}
+            #permutation
+            new_list = []
+            for lk in list_link:
+                new_list.append(link(transform[lk.i],transform[lk.j]))
+            Output.update_snapshot(t,new_list)
+    return Output
+#------------------------------------------
+#P__isoGamma_Phi
+# > Permutation of active node identities in snapshots
+#  seq_data (snapshot_sequence())
+def P__isoGamma_Phi(seq_data):
+    #construction of the new snapshot_sequence
+    list_time = seq_data.data.keys()
+    list_time.sort()
+    t_i = list_time[0]
+    t_f = list_time[-1]
+    dt = list_time[1] - t_i
+    t_f += dt
+    Output = snapshot_sequence(t_i,t_f,dt)
+    #permutation
+    for t,list_link in seq_data.out():
+        if list_link != []:
+            #extraction of active nodes
+            old_nodes = list(set().union(*[lk.display() for lk in list_link]))
+            nN = len(old_nodes)
+            #definition of the mapping from old to new IDs
+            new_nodes = sample(old_nodes,nN)
+            transform = {old_nodes[k]:new_nodes[k] for k in range(nN)}
+            #permutation
+            new_list = []
+            for lk in list_link:
+                new_list.append(link(transform[lk.i],transform[lk.j]))
+            Output.update_snapshot(t,new_list)
+    return Output
+#------------------------------------------
 #==========================================
 #------------------------------------------
-# Link timeline representation
-#--All the following functions take a link_timeline as input,
-#  and return a link_timeline.
+#Contact shuffling
 #------------------------------------------
-# Link permutations
+#==========================================
 #------------------------------------------
-#P__kstat_pTheta (Permutation of links with degree preservation)
+#P__ptau (Global contacts shuffling)
 #  lks_data (link_timeline())
-def P__kstat_pTheta(lks_data):
+#  ti (int): first time step of the dataset
+#  tf (int): last time step of the dataset
+#  dt: duration of a time step (int)
+def P__ptau(lks_data,ti,tf,dt):
+    #links extraction
+    list_lk = list(lks_data.links())
+    #nodes extraction
+    nodes = list(set().union(*[lk.display() for lk in list_lk]))
+    nN = len(nodes)
+    index_node = {nodes[k]:k for k in range(nN)}
+    #contacts extraction with time stamps
+    list_c = list(it.chain(*lks_data.data.values()))
+    #contacts redistribution
+    Output = link_timeline()
+    Tl = {}
+    for c in list_c:
+        #choice of the link
+        n,p = sample(nodes,2)
+        lk = link(n,p)
+        #virtual extension of the contact to test for concatenation
+        t0 = randint(ti/dt,(tf - c.duration)/dt)*dt
+        t1 = t0 + c.duration
+        loc_c = range(t0-dt,t1+dt,dt) #extended list of activation times
+        #test for overlapping
+        if lk in Tl:
+            test = np.array([t in Tl[lk] for t in loc_c])
+            while test.any():
+                n,p = sample(nodes,2)
+                lk = link(n,p)
+                #virtual extension of the contact to test for concatenation
+                t0 = randint(ti/dt,(tf - c.duration)/dt)*dt
+                t1 = t0 + c.duration
+                loc_c = range(t0-dt,t1+dt,dt) #extended list of activation times
+                if lk in Tl:
+                    test = np.array([t in Tl[lk] for t in loc_c])
+                else:
+                    test = np.array([False])
+            if lk in Tl:
+                Output.add_contact(lk.i,lk.j,t0,c.duration)
+#                Output.add_contact(lk.i,lk.j,c.time,c.duration)
+            else:
+                Tl[lk] = []
+                Output.add_link(lk.i,lk.j,[(t0,c.duration)])
+#                Output.add_link(lk.i,lk.j,[(c.time,c.duration)])
+        else:
+            Tl[lk] = []
+            Output.add_link(lk.i,lk.j,[(t0,c.duration)])
+#            Output.add_link(lk.i,lk.j,[(c.time,c.duration)])
+        Tl[lk] += loc_c
+    return Output
+#------------------------------------------
+#P__pttau (Global contacts shuffling)
+#  lks_data (link_timeline())
+#  dt: duration of a time step (int)
+def P__pttau(lks_data,dt):
+    #links extraction
+    list_lk = list(lks_data.links())
+    #nodes extraction
+    nodes = list(set().union(*[lk.display() for lk in list_lk]))
+    nN = len(nodes)
+    index_node = {nodes[k]:k for k in range(nN)}
+    #contacts extraction with time stamps
+    list_c = list(it.chain(*lks_data.data.values()))
+    #contacts redistribution
+    Output = link_timeline()
+    Tl = {}
+    for c in list_c:
+        #choice of the link
+        n,p = sample(nodes,2)
+        lk = link(n,p)
+        #virtual extension of the contact to test for concatenation
+        ti = c.time
+        tf = c.time + c.duration
+        loc_c = range(ti-dt,tf+dt,dt) #extended list of activation times
+        #test for overlapping
+        if lk in Tl:
+            test = np.array([t in Tl[lk] for t in loc_c])
+            while test.any():
+                n,p = sample(nodes,2)
+                lk = link(n,p)
+                ti = c.time
+                tf = c.time + c.duration
+                loc_c = range(ti-dt,tf+dt,dt) #extended list of activation times
+                if lk in Tl:
+                    test = np.array([t in Tl[lk] for t in loc_c])
+                else:
+                    test = np.array([False])
+            if lk in Tl:
+                Output.add_contact(lk.i,lk.j,c.time,c.duration)
+            else:
+                Tl[lk] = []
+                Output.add_link(lk.i,lk.j,[(c.time,c.duration)])
+        else:
+            Tl[lk] = []
+            Output.add_link(lk.i,lk.j,[(c.time,c.duration)])
+        Tl[lk] += loc_c
+    return Output
+#------------------------------------------
+#==========================================
+#------------------------------------------
+# Link shuffling
+#------------------------------------------
+#==========================================
+#------------------------------------------
+#P__pTheta (Permutation of links)
+#lks_data: (link_timeline())
+def P__pTheta(lks_data):
+    list_links = lks_data.links()
+    nLinks = len(list_links)
+    #extraction of the timelines and the list of nodes
+    list_timeline = [[c.display() for c in lks_data.data[lk]] for lk in list_links]
+    #dictionary of node indices
+    nodes = list(set().union(*[lk.display() for lk in list_links]))
+    nN = len(nodes)
+    index_node = {nodes[k]:k for k in range(nN)}
+    #construction of the new links
+    Output = link_timeline()
+    #new adjacency matrix to avoid link duplicates and self-loops
+    Adj = np.identity(nN)
+    for l in range(nLinks):
+        #sampling of two nodes
+        (i,j) = sample(nodes,2)
+        #loop while self-loop or link already exists
+        while Adj[index_node[i]][index_node[j]]:
+            (i,j) = sample(nodes,2)
+        #sampling of the timelines
+        Tl = choice(list_timeline)
+        list_timeline.remove(Tl)
+        #creation of the new link
+        Output.add_link(i,j,Tl)
+        #update of the adjacency matrix
+        Adj[index_node[i]][index_node[j]] = 1
+        Adj[index_node[j]][index_node[i]] = 1
+    return Output
+#------------------------------------------
+#P__pTheta_k (Permutation of links with degree preservation)
+#  lks_data (link_timeline())
+def P__pTheta_k(lks_data):
     list_links = lks_data.links()
     #extraction of the timelines
     list_timeline = [[c.display() for c in lks_data.data[lk]] for lk in list_links]
@@ -1065,20 +1175,76 @@ def P__kstat_pTheta(lks_data):
         while list_nodes != []:
             n = list_nodes.pop()
             #test of solvable finalisation of the reconstruction
-            if len(list_nodes) >= deg[n]:
-                neighbors = sample(list_nodes,deg[n])
-                deg[n] = 0
+            if len(list_nodes) >= k_loc[n]:
+                neighbors = sample(list_nodes,k_loc[n])
+                k_loc[n] = 0
                 for p in neighbors:
-                    deg[p] -= 1
+                    k_loc[p] -= 1
                     Tl = choice(list_tl)
                     list_tl.remove(Tl)
                     Output.add_link(n,p,Tl)
                 #updating the list of available nodes
-                list_nodes = [n for n in list_nodes if deg[n] > 0]
-                list_nodes = sorted(list_nodes,key=lambda x:deg[x])
+                list_nodes = [n for n in list_nodes if k_loc[n] > 0]
+                list_nodes = sorted(list_nodes,key=lambda x:k_loc[x])
             else:
                 list_nodes = []
                 redo = True
+    return Output
+#------------------------------------------
+#P__L_pTheta (Permutation of timelines)
+#lks_data: (link_timeline())
+def P__L_pTheta(lks_data):
+    #extraction of the timelines
+    list_timeline = [[c.display() for c in lks_data.data[lk]] for lk in lks_data.links()]
+    #construction of the new links
+    Output = link_timeline()
+    #sampling of the timelines
+    for lk in lks_data.links():
+        Tl = choice(list_timeline)
+        list_timeline.remove(Tl)
+        Output.add_link(lk.i,lk.j,Tl)
+    return Output
+#------------------------------------------
+#P__w_pTheta (Permutation of timelines with preservation of the weights)
+#lks_data (link_timeline())
+def P__w_pTheta(lks_data):
+    #extraction of the contact frequencies
+    dict_link = weights(lks_data)
+    #extraction of the timelines
+    w_keys = list(set(dict_link.values()))
+    dict_weight = {w:[] for w in w_keys}
+    list_links = lks_data.links()
+    for lk in list_links:
+        dict_weight[dict_link[lk]].append([c.display() for c in lks_data.data[lk]])
+    #construction of the new links
+    Output = link_timeline()
+    #sampling of the timelines
+    for lk in list_links:
+        w = dict_link[lk]
+        Tl = choice(dict_weight[w])
+        dict_weight[w].remove(Tl)
+        Output.add_link(lk.i,lk.j,Tl)
+    return Output
+#------------------------------------------
+#P__n_pTheta (Permutation of timelines with preservation of the contact frequencies)
+#  lks_data (link_timeline())
+def P__n_pTheta(lks_data):
+    #extraction of the contact frequencies
+    dict_link = number_of_contacts(lks_data)
+    #extraction of the timelines
+    n_keys = list(set(dict_link.values()))
+    dict_timeline = {n:[] for n in n_keys}
+    list_links = lks_data.links()
+    for lk in list_links:
+        dict_timeline[dict_link[lk]].append([c.display() for c in lks_data.data[lk]])
+    #construction of the new links
+    Output = link_timeline()
+    #sampling of the timelines
+    for lk in list_links:
+        n = dict_link[lk]
+        Tl = choice(dict_timeline[n])
+        dict_timeline[n].remove(Tl)
+        Output.add_link(lk.i,lk.j,Tl)
     return Output
 #------------------------------------------
 #P__LCM (Permutation of links with group structure preservation)
@@ -1132,11 +1298,11 @@ def P__LCM(lks_data,group):
         Output.data[link(i,j)] = Tl[:]
     return Output
 #------------------------------------------
-#P__kstat_LCM (Permutation of links with group structure and node degrees preservation)
+#P__k_LCM (Permutation of links with group structure and node degrees preservation)
 #  lks_data: (link_timeline())
 #  group: dictionary associating each node with its group. Group labels can be of any type.
 #  n_iter: factor for the number of iterations: number of permutations = n_iter x number of links. By default, n_iter = 5.
-def P__kstat_LCM(lks_data,group,n_iter=3):
+def P__k_LCM(lks_data,group,n_iter=3):
     list_links = lks_data.links()
     Output = link_timeline(lks_data.links_display())
     nL = len(list_links)
@@ -1241,284 +1407,28 @@ def P__kstat_LCM(lks_data,group,n_iter=3):
         Output.add_link(lk.i,lk.j,Tl)
     return Output,converge
 #------------------------------------------
-#P__pTheta (Permutation of links)
-#lks_data: (link_timeline())
-def P__pTheta(lks_data):
-    list_links = lks_data.links()
-    nLinks = len(list_links)
-    #extraction of the timelines and the list of nodes
-    list_timeline = [[c.display() for c in lks_data.data[lk]] for lk in list_links]
-    #dictionary of node indices
-    nodes = list(set().union(*[lk.display() for lk in list_links]))
-    nN = len(nodes)
-    index_node = {nodes[k]:k for k in range(nN)}
-    #construction of the new links
-    Output = link_timeline()
-    #new adjacency matrix to avoid link duplicates and self-loops
-    Adj = np.identity(nN)
-    for l in range(nLinks):
-        #sampling of two nodes
-        (i,j) = sample(nodes,2)
-        #loop while self-loop or link already exists
-        while Adj[index_node[i]][index_node[j]]:
-            (i,j) = sample(nodes,2)
-        #sampling of the timelines
-        Tl = choice(list_timeline)
-        list_timeline.remove(Tl)
-        #creation of the new link
-        Output.add_link(i,j,Tl)
-        #update of the adjacency matrix
-        Adj[index_node[i]][index_node[j]] = 1
-        Adj[index_node[j]][index_node[i]] = 1
-    return Output
+#==========================================
 #------------------------------------------
-# Timeline permutations
+# Timeline shuffling (events)
 #------------------------------------------
-#P__n_pTheta (Permutation of timelines with preservation of the contact frequencies)
-#  lks_data (link_timeline())
-def P__n_pTheta(lks_data):
-    #extraction of the contact frequencies
-    dict_link = number_of_contacts(lks_data)
-    #extraction of the timelines
-    n_keys = list(set(dict_link.values()))
-    dict_timeline = {n:[] for n in n_keys}
-    list_links = lks_data.links()
-    for lk in list_links:
-        dict_timeline[dict_link[lk]].append([c.display() for c in lks_data.data[lk]])
-    #construction of the new links
-    Output = link_timeline()
-    #sampling of the timelines
-    for lk in list_links:
-        n = dict_link[lk]
-        Tl = choice(dict_timeline[n])
-        dict_timeline[n].remove(Tl)
-        Output.add_link(lk.i,lk.j,Tl)
-    return Output
+#==========================================
 #------------------------------------------
-#P__w_pTheta (Permutation of timelines with preservation of the weights)
-#lks_data (link_timeline())
-def P__w_pTheta(lks_data):
-    #extraction of the contact frequencies
-    dict_link = weights(lks_data)
-    #extraction of the timelines
-    w_keys = list(set(dict_link.values()))
-    dict_weight = {w:[] for w in w_keys}
-    list_links = lks_data.links()
-    for lk in list_links:
-        dict_weight[dict_link[lk]].append([c.display() for c in lks_data.data[lk]])
-    #construction of the new links
-    Output = link_timeline()
-    #sampling of the timelines
-    for lk in list_links:
-        w = dict_link[lk]
-        Tl = choice(dict_weight[w])
-        dict_weight[w].remove(Tl)
-        Output.add_link(lk.i,lk.j,Tl)
-    return Output
-#------------------------------------------
-#P__Gstat_pTheta (Permutation of timelines)
-#lks_data: (link_timeline())
-def P__Gstat_pTheta(lks_data):
-    #extraction of the timelines
-    list_timeline = [[c.display() for c in lks_data.data[lk]] for lk in lks_data.links()]
-    #construction of the new links
-    Output = link_timeline()
-    #sampling of the timelines
-    for lk in lks_data.links():
-        Tl = choice(list_timeline)
-        list_timeline.remove(Tl)
-        Output.add_link(lk.i,lk.j,Tl)
-    return Output
-#------------------------------------------
-#P__pitau_pidtau_t1 (Interval shuffling in place with conservation of the initial time)
-#  lks_data (link_timeline())
-def P__pitau_pidtau_t1(lks_data):
-    Output = link_timeline()
-    dict_tau = contact_durations(lks_data)
-    dict_dtau = intercontact_durations(lks_data)
-    for lk in lks_data.links():
-        #extraction of the contact and intercontact events
-        contacts = dict_tau[lk]
-        intercontacts = dict_dtau[lk]
-        #initial time
-        list_c = lks_data.data[lk]
-        list_c = sorted(list_c,key=lambda x:x.time)
-        t0 = list_c[0].time
-        #construction of the new timeline
-        contacts = sample(contacts,len(contacts))
-        intercontacts = sample(intercontacts,len(intercontacts))
-        t = t0
-        Tl = []
-        while contacts != []:
-            tau = contacts.pop()
-            Tl.append((t,tau))
-            t += tau
-            if intercontacts != []:
-                dtau = intercontacts.pop()
-                t += dtau
-        #adding the timeline
-        Output.add_link(lk.i,lk.j,Tl)
-    return Output
-#------------------------------------------
-#P__pitau_pidtau (Interval shuffling in place)
+#P__L_E (Global events permutation)
 #  lks_data (link_timeline())
 #  ti (int): first time step of the dataset
 #  tf (int): last time step of the dataset
 #  dt (int): duration of a time step
-def P__pitau_pidtau(lks_data,ti,tf,dt):
-    Output = link_timeline()
-    dict_tau = contact_durations(lks_data)
-    dict_dtau = intercontact_durations(lks_data)
-    for lk in lks_data.links():
-        #extraction of the contact and intercontact events
-        contacts = dict_tau[lk]
-        intercontacts = dict_dtau[lk]
-        #computation of the remaining usable time
-        tu = tf - ti - sum(contacts) - sum(intercontacts)
-        #new initial time
-        t0 = randint(0,tu/dt)*dt
-        #construction of the new timeline
-        contacts = sample(contacts,len(contacts))
-        intercontacts = sample(intercontacts,len(intercontacts))
-        t = t0
-        Tl = []
-        while contacts != []:
-            tau = contacts.pop()
-            Tl.append((t,tau))
-            t += tau
-            if intercontacts != []:
-                dtau = intercontacts.pop()
-                t += dtau
-        #adding the timeline
-        Output.add_link(lk.i,lk.j,Tl)
-    return Output
-#------------------------------------------
-#P__pitau (Contacts shuffling in place)
-#  lks_data (link_timeline())
-#  ti (int): first time step of the dataset
-#  tf (int): last time step of the dataset
-#  dt (int): duration of a time step
-def P__pitau(lks_data,ti,tf,dt):
-    Output = link_timeline()
-    dict_tau = contact_durations(lks_data)
-    for lk in lks_data.links():
-        #extraction of the contact events
-        contacts = dict_tau[lk]
-        #computation of the remaining usable time
-        tu = tf - ti - sum(contacts)
-        #construction of the new timeline
-        contacts = sample(contacts,len(contacts))
-        #new starting times for the contacts
-        list_t = [randint(0,tu/dt)*dt for c in contacts]
-        delta = 0
-        Tl = []
-        for c in contacts:
-            t0 = list_t.pop(0)
-            t0 += delta
-            Tl.append((t0,c))
-            delta += c
-        #adding the timeline
-        Output.add_link(lk.i,lk.j,Tl)
-    return Output
-#------------------------------------------
-#P__n_ptau_E (Global contacts shuffling)
-#  lks_data (link_timeline())
-#  dt (int): duration of a time step
-def P__n_ptau_E(lks_data,dt):
-    #determination of the number of contacts
-    num = number_of_contacts(lks_data)
-    #link ordering by number of contact
-    list_lk = sorted(lks_data.links(),key=lambda x:num[x],reverse=True)
-    #contacts extraction
-    list_c = list(it.chain(*lks_data.data.values()))
-    #contacts redistribution
-    Output = link_timeline()
-    for lk in list_lk:
-        #construction of a non-overlapping, non concatenating sample of n contacts
-        n = num[lk]
-        Tl = []
-        #first contact
-        c = choice(list_c)
-        ti = c.time
-        tf = c.time + c.duration
-        loc_c = range(ti-dt,tf+dt,dt) #extended list of activation times
-        list_c.remove(c)
-        Tl.append(c.display())
-        testlist_t = loc_c[:] #test list for overlapping
-        for ic in range(n-1):
-            c = choice(list_c)
-            ti = c.time
-            tf = c.time + c.duration
-            loc_c = range(ti-dt,tf+dt,dt)
-            #test for overlapping and concatenation
-            test = testlist_t + loc_c
-            while len(test) > len(list(set(test))):
-                c = choice(list_c)
-                ti = c.time
-                tf = c.time + c.duration
-                loc_c = range(ti-dt,tf+dt,dt)
-                test = testlist_t + loc_c
-            #adding the contact
-            testlist_t += loc_c
-            list_c.remove(c)
-            Tl.append(c.display())
-        #adding the new timeline
-        Output.add_link(lk.i,lk.j,Tl)
-    return Output
-#------------------------------------------
-#P__ptau_E (Global contacts shuffling)
-#  lks_data (link_timeline())
-#  dt: duration of a time step (int)
-def P__ptau_E(lks_data,dt):
-    #links extraction
+def P__L_E(lks_data,ti,tf,dt):
+    #extraction of the total number of contacts
+    nC = sum(weights(lks_data).values())
+    #extraction of the links
     list_lk = list(lks_data.links())
-    #contacts extraction with time stamps
-    list_c = list(it.chain(*lks_data.data.values()))
-    #contacts redistribution
-    Output = link_timeline(lks_data.links_display())
-    Tl = {lk:[] for lk in list_lk}
-    for c in list_c:
-        lk = choice(list_lk)
-        #virtual extension of the contact to test for concatenation
-        ti = c.time
-        tf = c.time + c.duration
-        loc_c = range(ti-dt,tf+dt,dt) #extended list of activation times
-        #test for overlapping
-        test = np.array([t in Tl[lk] for t in loc_c])
-        while test.any():
-            lk = choice(list_lk)
-            ti = c.time
-            tf = c.time + c.duration
-            loc_c = range(ti-dt,tf+dt,dt) #extended list of activation times
-            test = np.array([t in Tl[lk] for t in loc_c])
-        Output.add_contact(lk.i,lk.j,c.time,c.duration)
-        Tl[lk] += loc_c
-    return Output
-#------------------------------------------
-#P__w_E (Global events shuffling)
-#  lks_data (link_timeline())
-#  dt (int): duration of a time step
-def P__w_E(lks_data,dt):
-    #link weights extraction
-    weight = weights(lks_data)
-    #link ordering by weight
-    list_lk = sorted(lks_data.links(),key=lambda x:weight[x],reverse=True)
-    #events extraction
-    list_t = []
-    for lk in list_lk:
-        for c in lks_data.data[lk]:
-            ti = c.time
-            tf = c.time + c.duration
-            list_t += range(ti,tf,dt)
     #events redistribution
     Output = tij()
-    for lk in list_lk:
-        w = weight[lk]
-        pool = list(set(list_t))
-        list_event = sample(pool,w)
-        for t in list_event:
-            list_t.remove(t)
-            Output.add_event(t,lk.i,lk.j)
+    for e in range(nC):
+        t = randint(ti/dt,tf/dt)*dt
+        lk = choice(list_lk)
+        Output.add_event(t,lk.i,lk.j)
     return Output
 #------------------------------------------
 #P__w (Global events permutation with weights preservation)
@@ -1565,41 +1475,341 @@ def P__w_t1_tw(lks_data,ti,tf,dt):
                 Output.add_event(t,lk.i,lk.j)
     return Output
 #------------------------------------------
-#P__Gstat (Global events permutation)
+#P__w_A (Global events shuffling)
 #  lks_data (link_timeline())
-#  ti (int): first time step of the dataset
-#  tf (int): last time step of the dataset
 #  dt (int): duration of a time step
-def P__Gstat(lks_data,ti,tf,dt):
-    #extraction of the total number of contacts
-    nC = sum(weights(lks_data).values())
-    #extraction of the links
-    list_lk = list(lks_data.links())
+def P__w_A(lks_data,dt):
+    #link weights extraction
+    weight = weights(lks_data)
+    #link ordering by weight
+    list_lk = sorted(lks_data.links(),key=lambda x:weight[x],reverse=True)
+    #events extraction
+    list_t = []
+    for lk in list_lk:
+        for c in lks_data.data[lk]:
+            ti = c.time
+            tf = c.time + c.duration
+            list_t += range(ti,tf,dt)
     #events redistribution
     Output = tij()
-    for e in range(nC):
-        t = randint(ti/dt,tf/dt)*dt
-        lk = choice(list_lk)
-        Output.add_event(t,lk.i,lk.j)
+    for lk in list_lk:
+        w = weight[lk]
+        pool = list(set(list_t))
+        list_event = sample(pool,w)
+        for t in list_event:
+            list_t.remove(t)
+            Output.add_event(t,lk.i,lk.j)
     return Output
 #------------------------------------------
-#P__tau_dtau (Offset shuffling)
+#==========================================
+#------------------------------------------
+#Sequence shuffling
+#------------------------------------------
+#==========================================
+#------------------------------------------
+#P__pGamma (Permutation of snapshots)
+#  seq_data (snapshot_sequence())
+def P__pGamma(seq_data):
+    #extraction of snapshot_sequence caracteristics
+    list_time = seq_data.data.keys()
+    list_time.sort()
+    t_i = list_time[0]
+    t_f = list_time[-1]
+    dt = list_time[1] - t_i
+    t_f += dt
+    #snapshots treatment
+    list_S = []
+    #extraction of the active snapshots
+    for t,list_link in seq_data.out():
+        if list_link != []:
+            list_S.append(list_link)
+    #definition of the new time steps
+    list_t = sample(range(t_i,t_f,dt),len(list_S))
+    #reconstruction
+    Output = snapshot_sequence(t_i,t_f,dt)
+    for t in list_t:
+        list_link = list_S.pop()
+        Output.update_snapshot(t,list_link)
+    return Output
+#------------------------------------------
+#P__pGamma_sgnA (Permutation of active snapshots)
+#  seq_data (snapshot_sequence())
+def P__pGamma_sgnA(seq_data):
+    #extraction of snapshot_sequence caracteristics
+    list_time = seq_data.data.keys()
+    list_time.sort()
+    t_i = list_time[0]
+    t_f = list_time[-1]
+    dt = list_time[1] - t_i
+    t_f += dt
+    #snapshots treatment
+    list_S = []
+    #extraction of the active snapshots and their time stamps
+    list_t = []
+    for t,list_link in seq_data.out():
+        if list_link != []:
+            list_t.append(t)
+            list_S.append(list_link)
+    #definition of the new time steps
+    list_t = sample(list_t,len(list_t))
+    #reconstruction
+    Output = snapshot_sequence(t_i,t_f,dt)
+    for t in list_t:
+        list_link = list_S.pop()
+        Output.update_snapshot(t,list_link)
+    return Output
+#------------------------------------------
+#==========================================
+#------------------------------------------
+# Timeline shuffling (contacts)
+#------------------------------------------
+#==========================================
+#------------------------------------------
+#P__L_ptau (Global contacts shuffling)
+#  lks_data (link_timeline())
+#  ti (int): first time step of the dataset
+#  tf (int): last time step of the dataset
+#  dt: duration of a time step (int)
+def P__L_ptau(lks_data,ti,tf,dt):
+    #links extraction
+    list_lk = list(lks_data.links())
+    #contacts extraction with time stamps
+    list_c = list(it.chain(*lks_data.data.values()))
+    #contacts redistribution
+    Output = link_timeline(lks_data.links_display())
+    Tl = {lk:[] for lk in list_lk}
+    for c in list_c:
+        #choice of the link
+        lk = choice(list_lk)
+        #virtual extension of the contact to test for concatenation
+        t0 = randint(ti/dt,(tf - c.duration)/dt)*dt
+        t1 = t0 + c.duration
+        loc_c = range(t0-dt,t1+dt,dt) #extended list of activation times
+        #test for overlapping
+        test = np.array([t in Tl[lk] for t in loc_c])
+        while test.any(): 
+            lk = choice(list_lk)
+            t0 = randint(ti/dt,(tf - c.duration)/dt)*dt
+            t1 = t0 + c.duration
+            loc_c = range(t0-dt,t1+dt,dt) #extended list of activation times
+            test = np.array([t in Tl[lk] for t in loc_c])
+        Output.add_contact(lk.i,lk.j,t0,c.duration)
+        Tl[lk] += loc_c
+    return Output
+#------------------------------------------
+#P__n_pttau (Global contacts shuffling)
+#  lks_data (link_timeline())
+#  dt (int): duration of a time step
+def P__n_pttau(lks_data,dt):
+    #determination of the number of contacts
+    num = number_of_contacts(lks_data)
+    #link ordering by number of contact
+    list_lk = sorted(lks_data.links(),key=lambda x:num[x],reverse=True)
+    #contacts extraction
+    list_c = list(it.chain(*lks_data.data.values()))
+    #contacts redistribution
+    Output = link_timeline()
+    for lk in list_lk:
+        #construction of a non-overlapping, non concatenating sample of n contacts
+        n = num[lk]
+        Tl = []
+        #first contact
+        c = choice(list_c)
+        ti = c.time
+        tf = c.time + c.duration
+        loc_c = range(ti-dt,tf+dt,dt) #extended list of activation times
+        list_c.remove(c)
+        Tl.append(c.display())
+        testlist_t = loc_c[:] #test list for overlapping
+        for ic in range(n-1):
+            c = choice(list_c)
+            ti = c.time
+            tf = c.time + c.duration
+            loc_c = range(ti-dt,tf+dt,dt)
+            #test for overlapping and concatenation
+            test = testlist_t + loc_c
+            while len(test) > len(list(set(test))):
+                c = choice(list_c)
+                ti = c.time
+                tf = c.time + c.duration
+                loc_c = range(ti-dt,tf+dt,dt)
+                test = testlist_t + loc_c
+            #adding the contact
+            testlist_t += loc_c
+            list_c.remove(c)
+            Tl.append(c.display())
+        #adding the new timeline
+        Output.add_link(lk.i,lk.j,Tl)
+    return Output
+#------------------------------------------
+#P__L_pttau (Global contacts shuffling on Gstat)
+#  lks_data (link_timeline())
+#  dt: duration of a time step (int)
+def P__L_pttau(lks_data,dt):
+    #links extraction
+    list_lk = list(lks_data.links())
+    #contacts extraction with time stamps
+    list_c = list(it.chain(*lks_data.data.values()))
+    #contacts redistribution
+    Output = link_timeline(lks_data.links_display())
+    Tl = {lk:[] for lk in list_lk}
+    for c in list_c:
+        lk = choice(list_lk)
+        #virtual extension of the contact to test for concatenation
+        ti = c.time
+        tf = c.time + c.duration
+        loc_c = range(ti-dt,tf+dt,dt) #extended list of activation times
+        #test for overlapping
+        test = np.array([t in Tl[lk] for t in loc_c])
+        while test.any():
+            lk = choice(list_lk)
+            ti = c.time
+            tf = c.time + c.duration
+            loc_c = range(ti-dt,tf+dt,dt) #extended list of activation times
+            test = np.array([t in Tl[lk] for t in loc_c])
+        Output.add_contact(lk.i,lk.j,c.time,c.duration)
+        Tl[lk] += loc_c
+    return Output
+#------------------------------------------
+#==========================================
+#------------------------------------------
+# Timeline shuffling (events & contacts)
+#------------------------------------------
+#==========================================
+#------------------------------------------
+#P__pitau (Contacts shuffling in place)
 #  lks_data (link_timeline())
 #  ti (int): first time step of the dataset
 #  tf (int): last time step of the dataset
 #  dt (int): duration of a time step
-def P__tau_dtau(lks_data,ti,tf,dt):
+def P__pitau(lks_data,ti,tf,dt):
     Output = link_timeline()
+    dict_tau = contact_durations(lks_data)
     for lk in lks_data.links():
+        #extraction of the contact events
+        contacts = dict_tau[lk]
+        #computation of the remaining usable time
+        tu = tf - ti - sum(contacts)
+        #construction of the new timeline
+        contacts = sample(contacts,len(contacts))
+        #new starting times for the contacts
+        list_t = [randint(0,tu/dt)*dt for c in contacts]
+        list_t.sort()
+        delta = 0
+        Tl = []
+        for c in contacts:
+            t0 = list_t.pop(0)
+            t0 += delta
+            Tl.append((t0,c))
+            delta += c
+        #adding the timeline
+        Output.add_link(lk.i,lk.j,Tl)
+    return Output
+#------------------------------------------
+#P__pitau_t1_tw (Contacts shuffling in place)
+#  lks_data (link_timeline())
+#  dt (int): duration of a time step
+def P__pitau_t1_tw(lks_data,dt):
+    Output = link_timeline()
+    dict_tau = contact_durations(lks_data)
+    for lk in lks_data.links():
+        #extraction of the contact events
+        contacts = dict_tau[lk]
+        nC = len(contacts)
+        #parameters
         Tl = sorted(lks_data.data[lk],key=lambda x:x.time)
+#        if nC == 2:
+#            print Tl
         t1 = Tl[0].time
-        t2 = Tl[-1].time + Tl[-1].duration
-        tu = tf - t2 + t1 - ti #unused time
-        offset = randint(0,tu/dt)*dt + ti - t1
-        new_Tl = []
-        for c in Tl:
-            new_Tl.append((c.time + offset,c.duration))
-        Output.add_link(lk.i,lk.j,new_Tl)
+        tw = Tl[-1].time + Tl[-1].duration
+        tu = tw - t1 - sum(contacts)
+        #construction of the new timeline
+        contacts = sample(contacts,len(contacts))
+        #first contact
+        c1 = contacts.pop()
+        Tl = [(t1,c1)]
+        if nC > 1:
+            #last contact
+            cw = contacts.pop()
+            Tl.append((tw-cw,cw))
+            #other contacts
+            list_t = [randint(1,tu/dt)*dt for c in contacts]
+#            list_t = sample(np.arange(1,tu/dt,1)*dt,nC-2)
+            list_t.sort()
+            delta = t1+c1
+            for c in contacts:
+                t0 = list_t.pop(0)
+                t0 += delta
+                Tl.append((t0,c))
+                delta += c
+#        if nC == 2:
+#            print Tl
+#            raw_input()
+        #adding the timeline
+        Output.add_link(lk.i,lk.j,Tl)
+    return Output
+#------------------------------------------
+#P__pitau_pidtau (Interval shuffling in place)
+#  lks_data (link_timeline())
+#  ti (int): first time step of the dataset
+#  tf (int): last time step of the dataset
+#  dt (int): duration of a time step
+def P__pitau_pidtau(lks_data,ti,tf,dt):
+    Output = link_timeline()
+    dict_tau = contact_durations(lks_data)
+    dict_dtau = intercontact_durations(lks_data)
+    for lk in lks_data.links():
+        #extraction of the contact and intercontact events
+        contacts = dict_tau[lk]
+        intercontacts = dict_dtau[lk]
+        #computation of the remaining usable time
+        tu = tf - ti - sum(contacts) - sum(intercontacts)
+        #new initial time
+        t0 = randint(0,tu/dt)*dt
+        #construction of the new timeline
+        contacts = sample(contacts,len(contacts))
+        intercontacts = sample(intercontacts,len(intercontacts))
+        t = t0
+        Tl = []
+        while contacts != []:
+            tau = contacts.pop()
+            Tl.append((t,tau))
+            t += tau
+            if intercontacts != []:
+                dtau = intercontacts.pop()
+                t += dtau
+        #adding the timeline
+        Output.add_link(lk.i,lk.j,Tl)
+    return Output
+#------------------------------------------
+#P__pitau_pidtau_t1 (Interval shuffling in place with conservation of the initial time)
+#  lks_data (link_timeline())
+def P__pitau_pidtau_t1(lks_data):
+    Output = link_timeline()
+    dict_tau = contact_durations(lks_data)
+    dict_dtau = intercontact_durations(lks_data)
+    for lk in lks_data.links():
+        #extraction of the contact and intercontact events
+        contacts = dict_tau[lk]
+        intercontacts = dict_dtau[lk]
+        #initial time
+        list_c = lks_data.data[lk]
+        list_c = sorted(list_c,key=lambda x:x.time)
+        t0 = list_c[0].time
+        #construction of the new timeline
+        contacts = sample(contacts,len(contacts))
+        intercontacts = sample(intercontacts,len(intercontacts))
+        t = t0
+        Tl = []
+        while contacts != []:
+            tau = contacts.pop()
+            Tl.append((t,tau))
+            t += tau
+            if intercontacts != []:
+                dtau = intercontacts.pop()
+                t += dtau
+        #adding the timeline
+        Output.add_link(lk.i,lk.j,Tl)
     return Output
 #------------------------------------------
 #P__perTheta (Periodic boudaries offset shuffling)
@@ -1628,30 +1838,23 @@ def P__perTheta(lks_data,ti,tf,dt):
         Output.add_link(lk.i,lk.j,new_Tl)
     return Output
 #------------------------------------------
-#P__pi_t_tau (Contacts shuffling according to starting time)
+#P__tau_dtau (Offset shuffling)
 #  lks_data (link_timeline())
+#  ti (int): first time step of the dataset
+#  tf (int): last time step of the dataset
 #  dt (int): duration of a time step
-def P__pi_t_tau(lks_data,dt):
+def P__tau_dtau(lks_data,ti,tf,dt):
     Output = link_timeline()
-    dict_tau = contact_durations(lks_data)
     for lk in lks_data.links():
-        #extraction of the contact events
-        contacts = dict_tau[lk]
-        #computation of the remaining usable time
-        tu = tf - ti - sum(contacts)
-        #construction of the new timeline
-        contacts = sample(contacts,len(contacts))
-        #new starting times for the contacts
-        list_t = [randint(0,tu/dt)*dt for c in contacts]
-        delta = 0
-        Tl = []
-        for c in contacts:
-            t0 = list_t.pop(0)
-            t0 += delta
-            Tl.append((t0,c))
-            delta += c
-        #adding the timeline
-        Output.add_link(lk.i,lk.j,Tl)
+        Tl = sorted(lks_data.data[lk],key=lambda x:x.time)
+        t1 = Tl[0].time
+        t2 = Tl[-1].time + Tl[-1].duration
+        tu = tf - t2 + t1 - ti #unused time
+        offset = randint(0,tu/dt)*dt + ti - t1
+        new_Tl = []
+        for c in Tl:
+            new_Tl.append((c.time + offset,c.duration))
+        Output.add_link(lk.i,lk.j,new_Tl)
     return Output
 #------------------------------------------
 #------------------------------------------
