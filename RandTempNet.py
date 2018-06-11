@@ -832,10 +832,10 @@ def P__E(seq_data):
 #==========================================
 #------------------------------------------
 
-#P__A
+#P__t
 # > Permutation of links in each snapshot
 #  seq_data (snapshot_sequence())
-def P__A(seq_data):
+def P__t(seq_data):
     #construction of the new snapshot_sequence
     list_time = seq_data.data.keys()
     list_time.sort()
@@ -860,10 +860,10 @@ def P__A(seq_data):
             Output.update_snapshot(t,new_list)
     return Output
 #------------------------------------------
-#P__A_Phi
+#P__t_Phi
 # > Permutation of links between active nodes in each snapshot
 #  seq_data (snapshot_sequence())
-def P__A_Phi(seq_data):
+def P__t_Phi(seq_data):
     #construction of the new snapshot_sequence
     list_time = seq_data.data.keys()
     list_time.sort()
@@ -1475,10 +1475,10 @@ def P__w_t1_tw(lks_data,ti,tf,dt):
                 Output.add_event(t,lk.i,lk.j)
     return Output
 #------------------------------------------
-#P__w_A (Global events shuffling)
+#P__w_t (Global events shuffling)
 #  lks_data (link_timeline())
 #  dt (int): duration of a time step
-def P__w_A(lks_data,dt):
+def P__w_t(lks_data,dt):
     #link weights extraction
     weight = weights(lks_data)
     #link ordering by weight
@@ -1532,9 +1532,9 @@ def P__pGamma(seq_data):
         Output.update_snapshot(t,list_link)
     return Output
 #------------------------------------------
-#P__pGamma_sgnA (Permutation of active snapshots)
+#P__pGamma_sgnt (Permutation of active snapshots)
 #  seq_data (snapshot_sequence())
-def P__pGamma_sgnA(seq_data):
+def P__pGamma_sgnt(seq_data):
     #extraction of snapshot_sequence caracteristics
     list_time = seq_data.data.keys()
     list_time.sort()
