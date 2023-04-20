@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #------------------------------------------
-#-        Temporal Networks v1.0          -
+#-        Temporal Networks v2.0          -
 #-           by Mathieu GÉNOIS            -
 #-       genois.mathieu@gmail.com         -
+#-  adapted in python3 by Thomas Robiglio -
+#-       robigliothomas@gmail.com         -
 #------------------------------------------
 #Python module for handling temporal networks
 #------------------------------------------
@@ -161,7 +163,7 @@ class tijtau:
         for t,i,j in list_c:
             del self.data[event(t,i,j)]
     def out(self):
-        values = [(e,self.data[e]) for e in self.data.keys()]
+        values = [(e,self.data[e]) for e in list(self.data.keys())]
         values = sorted(values,key=lambda x:x[0].time)
         return values
     def display(self):
@@ -184,11 +186,11 @@ class snapshot_sequence:
     def clear_snapshot(self,t):
         self.data[t] = snapshot([])
     def out(self):
-        list_t = self.data.keys()
+        list_t = list(self.data.keys())
         list_t.sort()
         return [(t,list(self.data[t].out())) for t in list_t]
     def display(self):
-        list_t = self.data.keys()
+        list_t = list(self.data.keys())
         list_t.sort()
         return [(t,[lk.display() for lk in self.data[t].out()]) for t in list_t]
 #------------------------------------------
@@ -208,12 +210,12 @@ class snapshot_sequence:
 class link_timeline:
     def __init__(self,list_lk=[],list_tl=[]):
         if list_tl != []:
-            values = zip(list_lk,list_tl)
+            values = list(zip(list_lk,list_tl))
             self.data = {link(lk[0],lk[1]):set([contact(t,tau) for t,tau in tl]) for lk,tl in values}
         else:
             self.data = {link(i,j):set([]) for i,j in list_lk}
     def links(self):
-        return self.data.keys()
+        return list(self.data.keys())
     def links_display(self):
         values = self.links()
         return [lk.display() for lk in values]
@@ -223,7 +225,7 @@ class link_timeline:
         del self.data[link(i,j)]
     def add_links(self,list_lk,list_tl=[]):
         if list_tl != []:
-            values = zip(list_lk,list_tl)
+            values = list(zip(list_lk,list_tl))
             self.data = {link(lk[0],lk[1]):set([contact(t,tau) for t,tau in tl]) for lk,tl in values}
         else:
             self.data = {link(i,j):set([]) for i,j in list_lk}

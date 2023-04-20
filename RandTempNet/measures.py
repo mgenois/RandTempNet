@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #------------------------------------------
-#-        Temporal Networks v1.0          -
+#-        Temporal Networks v2.0          -
 #-           by Mathieu GÉNOIS            -
 #-       genois.mathieu@gmail.com         -
+#-  adapted in python3 by Thomas Robiglio -
+#-       robigliothomas@gmail.com         -
 #------------------------------------------
 #Python module for handling temporal networks
 #------------------------------------------
@@ -11,8 +13,8 @@
 #==========================================
 #------------------------------------------
 #Libraries
-from classes import *
-from utils import *
+from .classes import *
+from .utils import *
 from math import ceil
 import numpy as np
 import itertools as it
@@ -44,7 +46,7 @@ def degrees(list_lk):
 def LCM(list_lk,group):
     #construction of the groups of nodes
     group_label = list(set(group.values()))
-    group_count = [group.values().count(lbl) for lbl in group_label]
+    group_count = [list(group.values()).count(lbl) for lbl in group_label]
     nG = len(group_label)
     Output = np.zeros((nG,nG))
     for lk in list_lk:
@@ -73,7 +75,7 @@ def LCM(list_lk,group):
 def WCM(list_lk,weights,group):
     #construction of the groups of nodes
     group_label = list(set(group.values()))
-    group_count = [group.values().count(lbl) for lbl in group_label]
+    group_count = [list(group.values()).count(lbl) for lbl in group_label]
     nG = len(group_label)
     Output = np.zeros((nG,nG))
     Norm = np.zeros((nG,nG))
@@ -135,7 +137,7 @@ def intercontact_durations(lks_data):
 def strengths(lks_data):
     w = weights(lks_data)
     list_lk = [lk.display() for lk in lks_data.links()]
-    n1,n2 = zip(*list_lk)
+    n1,n2 = list(zip(*list_lk))
     list_n = set(n1+n2)
     Output = {n:0 for n in list_n}
     for lk in lks_data.links():
@@ -149,7 +151,7 @@ def strengths(lks_data):
 def node_timelines(tij_data,dt):
     data = tij_data.out()
     list_lk = [(e.link.i,e.link.j) for e in data]
-    n1,n2 = zip(*list_lk)
+    n1,n2 = list(zip(*list_lk))
     list_n = set(n1+n2)
     tset = {n:[] for n in list_n}
     for e in data:
@@ -176,7 +178,7 @@ def node_timelines(tij_data,dt):
 #  dt (int): length of a time step
 def activities_0(tij_data,dt):
     ntl_data = node_timelines(tij_data,dt)
-    Output = {n:len(ntl_data[n]) for n in ntl_data.keys()}
+    Output = {n:len(ntl_data[n]) for n in list(ntl_data.keys())}
     return Output
 #------------------------------------------
 #Computation of the node activities, as equivalent to strengths but for number of contacts instead of weights
@@ -185,7 +187,7 @@ def activities_0(tij_data,dt):
 def activities(lks_data):
     nc = number_of_contacts(lks_data)
     list_lk = [lk.display() for lk in lks_data.links()]
-    n1,n2 = zip(*list_lk)
+    n1,n2 = list(zip(*list_lk))
     list_n = set(n1+n2)
     Output = {n:0 for n in list_n}
     for lk in lks_data.links():
@@ -197,7 +199,7 @@ def activities(lks_data):
 #  lks_data (link_timeline()): object to analyse
 def activity_durations(tij_data,dt):
     ntl_data = node_timelines(tij_data,dt)
-    Output = {n:[a[1] for a in ntl_data[n]] for n in ntl_data.keys()}
+    Output = {n:[a[1] for a in ntl_data[n]] for n in list(ntl_data.keys())}
     return Output
 #------------------------------------------
 #Computation of the inactivity durations list
@@ -205,7 +207,7 @@ def activity_durations(tij_data,dt):
 def inactivity_durations(tij_data,dt):
     ntl_data = node_timelines(tij_data,dt)
     Output = {}
-    for n in ntl_data.keys():
+    for n in list(ntl_data.keys()):
         values = [a[0] for a in ntl_data[n]]
         values.sort()
         values = list(np.diff(values))
@@ -256,7 +258,7 @@ def analysis(lks_data,dt,save=True,filename="analysis.pdf"):
     #--activity
     x += w_tl + mx
     ax = fig.add_axes([x,y,w,h])
-    data = activities(lks_data).values()
+    data = list(activities(lks_data).values())
     bins = 2.**(np.arange(0,np.log2(max(data)),0.5))
     dist = np.histogram(data,bins=bins,density=True)
     ax.loglog(bins[:-1],dist[0],'ko',mew=1.5,mfc='None')
@@ -264,7 +266,7 @@ def analysis(lks_data,dt,save=True,filename="analysis.pdf"):
     #--activity durations
     x += w + mx
     ax = fig.add_axes([x,y,w,h])
-    data = list(it.chain(*activity_durations(tij_data,dt).values()))
+    data = list(it.chain(*list(activity_durations(tij_data,dt).values())))
     bins = 2.**(np.arange(0,np.log2(max(data)),0.5))
     dist = np.histogram(data,bins=bins,density=True)
     ax.loglog(bins[:-1],dist[0],'ko',mew=1.5,mfc='None')
@@ -272,7 +274,7 @@ def analysis(lks_data,dt,save=True,filename="analysis.pdf"):
     #--inactivity durations
     x += w + mx
     ax = fig.add_axes([x,y,w,h])
-    data = list(it.chain(*inactivity_durations(tij_data,dt).values()))
+    data = list(it.chain(*list(inactivity_durations(tij_data,dt).values())))
     bins = 2.**(np.arange(0,np.log2(max(data)),0.5))
     dist = np.histogram(data,bins=bins,density=True)
     ax.loglog(bins[:-1],dist[0],'ko',mew=1.5,mfc='None')
@@ -282,7 +284,7 @@ def analysis(lks_data,dt,save=True,filename="analysis.pdf"):
     y += h + my
     ax = fig.add_axes([x,y,w,h])
     k = degrees(list_lk)
-    data = k.values()
+    data = list(k.values())
     nbins = 20
     dist = np.histogram(data,bins=nbins,density=True)
     ax.plot(dist[1][:-1],dist[0],'ko',mew=1.5,mfc='None')
@@ -293,9 +295,9 @@ def analysis(lks_data,dt,save=True,filename="analysis.pdf"):
     s = strengths(lks_data)
     kmax = max(k.values())+1
     dk = int(ceil(kmax/float(nbins)))
-    bins = range(0,kmax,dk)
+    bins = list(range(0,kmax,dk))
     tab = [[] for z in bins]
-    for n in k.keys():
+    for n in list(k.keys()):
         tab[int(k[n]/dk)].append(float(s[n])/float(k[n]))
     moy,std = [],[]
     for b in tab:
@@ -311,7 +313,7 @@ def analysis(lks_data,dt,save=True,filename="analysis.pdf"):
     #--weights
     x += w + mx
     ax = fig.add_axes([x,y,w,h])
-    data = weights(lks_data).values()
+    data = list(weights(lks_data).values())
     bins = 2.**(np.arange(0,np.log2(max(data)),0.5))
     dist = np.histogram(data,bins=bins,density=True)
     ax.loglog(bins[:-1],dist[0],'ko',mew=1.5,mfc='None')
@@ -319,7 +321,7 @@ def analysis(lks_data,dt,save=True,filename="analysis.pdf"):
     #--number fo contacts
     x += w + mx
     ax = fig.add_axes([x,y,w,h])
-    data = number_of_contacts(lks_data).values()
+    data = list(number_of_contacts(lks_data).values())
     bins = 2.**(np.arange(0,np.log2(max(data)),0.5))
     dist = np.histogram(data,bins=bins,density=True)
     ax.loglog(bins[:-1],dist[0],'ko',mew=1.5,mfc='None')
@@ -335,7 +337,7 @@ def analysis(lks_data,dt,save=True,filename="analysis.pdf"):
     #--intercontact durations
     x += w + mx
     ax = fig.add_axes([x,y,w,h])
-    data = list(it.chain(*intercontact_durations(lks_data).values()))
+    data = list(it.chain(*list(intercontact_durations(lks_data).values())))
     bins = 2.**(np.arange(0,np.log2(max(data)),0.5))
     dist = np.histogram(data,bins=bins,density=True)
     ax.loglog(bins[:-1],dist[0],'ko',mew=1.5,mfc='None')

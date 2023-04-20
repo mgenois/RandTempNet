@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #------------------------------------------
-#-        Temporal Networks v1.0          -
+#-        Temporal Networks v2.0          -
 #-           by Mathieu GÉNOIS            -
 #-       genois.mathieu@gmail.com         -
+#-  adapted in python3 by Thomas Robiglio -
+#-       robigliothomas@gmail.com         -
 #------------------------------------------
 #Python module for handling temporal networks
 #------------------------------------------
@@ -12,10 +14,11 @@
 #------------------------------------------
 #Libraries
 import networkx as nx
-import graph_tool as gt
+import numpy as np
+#import graph_tool as gt
 import matplotlib.pyplot as plt
-from graph_tool.draw import sfdp_layout,graph_draw,arf_layout
-from tempnet.utils import *
+#from graph_tool.draw import sfdp_layout,graph_draw,arf_layout
+from .utils import *
 #------------------------------------------
 #==========================================
 #==========================================
@@ -59,7 +62,7 @@ def deperc_steps_bc(Gb):
         #sorting of the edges according to their centrality
         central = nx.edge_betweenness_centrality(G)
 #        central = nx.edge_betweenness_centrality(G,weight="w")
-        lC = central.values()
+        lC = list(central.values())
         cmax = max(lC)
         lE = [e for e in G.edges() if central[e] == cmax]
         #computation of the depercolation steps
@@ -99,7 +102,7 @@ def distances(thG,thW,name="distances.png"):
         for j in range(nN):
             lDist.append([nx.shortest_path_length(Tree,source=dN[lN[i]],target=dN[lN[j]]),lN[j]])
         lDist.sort()
-        l1,l2 = zip(*lDist)
+        l1,l2 = list(zip(*lDist))
         tab.append(l2)
         tab.append(l1)
     np.savetxt(name,tab,fmt = "%d",delimiter = "\t")
@@ -112,6 +115,7 @@ def distances(thG,thW,name="distances.png"):
 #-node_shape: dictionary {node: int}
 #-edge_width: dictionary {(node,node): float}
 #-size: size of a single graph (int)
+"""
 def plot_graph_steps(thG,thE,name="graph_steps.pdf",ncol=5,node_color={},node_shape={},edge_width={},size=2):
     plt.switch_backend('cairo')
     nG = len(thG)
@@ -178,6 +182,7 @@ def plot_graph_steps(thG,thE,name="graph_steps.pdf",ncol=5,node_color={},node_sh
         ax.axis('off')
     plt.savefig(name)
 #------------------------------------------
+"""
 def make_tree(thG,thW):
     Tree = nx.DiGraph()
     Tree.add_node(-1,w=0,e=[-1],x=0,corner=[0,0])
@@ -250,6 +255,7 @@ def find_ta(thG,thW,n_ta):
             if list(subG) == [n_ta]:
                 return thW[i-1]
 #------------------------------------------
+"""
 #Plot of the tree structure
 def plot_tree(thG,thW,name,n_ta=-1):
     global depth
@@ -430,7 +436,7 @@ def plot_tree(thG,thW,name,n_ta=-1):
     ax.set_xlim(-s,depth*de+s)
     ax.set_ylim(ymax+s,-s)
     ax.set_xticklabels([])
-    ax.set_yticks(range(0,ymax+10,10))
+    ax.set_yticks(list(range(0,ymax+10,10)))
     ax.get_xaxis().set_visible(False)
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
@@ -445,3 +451,4 @@ def plot_tree(thG,thW,name,n_ta=-1):
 #==========================================
 #------------------------------------------
 depth = 0
+"""

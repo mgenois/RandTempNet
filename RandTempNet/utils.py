@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #------------------------------------------
-#-        Temporal Networks v1.0          -
+#-        Temporal Networks v2.0          -
 #-           by Mathieu GÉNOIS            -
 #-       genois.mathieu@gmail.com         -
+#-  adapted in python3 by Thomas Robiglio -
+#-       robigliothomas@gmail.com         -
 #------------------------------------------
 #Python module for handling temporal networks
 #------------------------------------------
@@ -11,11 +13,11 @@
 #==========================================
 #------------------------------------------
 #Libraries
-from classes import *
-from graph_tool.draw import sfdp_layout,graph_draw
+from .classes import *
+#from graph_tool.draw import sfdp_layout,graph_draw
 import numpy as np
 import networkx as nx
-import graph_tool as gt
+#import graph_tool as gt
 #------------------------------------------
 #==========================================
 #==========================================
@@ -319,7 +321,7 @@ def aggregate_tijtau(tijtau_data):
 #>returns a networkx Grapĥ() object
 def aggregate_snapshot_sequence(seq_data):
     G = nx.Graph()
-    for snapshot in seq_data.data.values():
+    for snapshot in list(seq_data.data.values()):
         for link in snapshot.list_link:
             n,p = link.i,link.j
             if G.has_edge(n,p):
@@ -352,6 +354,7 @@ def aggregate_link_timeline(lks_data):
 #-name: string, to name the output files
 #-save: boolean, to indicate whether to save the graph as XML or not
 
+"""
 def plot_graph(G,node_color={},node_shape={},edge_width={},ax=None,name="graph",save=False):
     nodes = G.nodes()
     nN = len(nodes)
@@ -412,6 +415,7 @@ def plot_graph(G,node_color={},node_shape={},edge_width={},ax=None,name="graph",
                    mplfig=ax
         )
 #------------------------------------------
+"""
 #==========================================
 #==========================================
 #------------------------------------------
