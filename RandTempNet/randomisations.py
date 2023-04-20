@@ -1,25 +1,29 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #------------------------------------------
-#-     Random Temporal Networks v1.0      -
+#-        Temporal Networks v2.0          -
 #-           by Mathieu GÉNOIS            -
 #-       genois.mathieu@gmail.com         -
+#-  adapted in python3 by Thomas Robiglio -
+#-       robigliothomas@gmail.com         -
 #------------------------------------------
-#Python module of randomization techniques for temporal networks
-#ref: Gauvin, Génois, Karsai, Kivelä, Takaguchi, Valdano and Vestergaard
+#Python module for handling temporal networks
 #------------------------------------------
 #==========================================
 #==========================================
 #------------------------------------------
 #Libraries
-from classes import *
-from utils import *
+from .classes import *
+from .utils import *
+from . import utils as tnu
+from . import measures as tnm
 from random import choice,sample,randint,shuffle
 from copy import deepcopy
 import itertools as it
-import tempnet.measures as tnm
-import tempnet.utils as tnu
+#import measures as tnm
+#import utils as tnu
 import networkx as nx
+import numpy as np
 #------------------------------------------
 #==========================================
 #==========================================
@@ -37,7 +41,7 @@ import networkx as nx
 #  seq_data (snapshot_sequence())
 def P__1(seq_data):
     #construction of the new snapshot_sequence
-    list_time = seq_data.data.keys()
+    list_time = list(seq_data.data.keys())
     list_time.sort()
     t_i = list_time[0]
     t_f = list_time[-1]
@@ -50,7 +54,7 @@ def P__1(seq_data):
     nodes = list(set().union(*[lk.display() for lk in nodes]))
     #extraction of the number of events
     nE = sum([len(step[1]) for step in data])
-    list_t = range(t_i,t_f,dt)
+    list_t = list(range(t_i,t_f,dt))
     #permutation
     for k in range(nE):
         t = choice(list_t)
@@ -73,7 +77,8 @@ def P__ptau(lks_data,ti,tf,dt):
     nN = len(nodes)
     index_node = {nodes[k]:k for k in range(nN)}
     #contacts extraction with time stamps
-    list_c = list(it.chain(*lks_data.data.values()))
+    list_c = list(it.chain(*list(lks_data.data.values())))
+    #list_c = list((lks_data.data.values()))
     #contacts redistribution
     Output = link_timeline()
     Tl = {}
@@ -84,7 +89,7 @@ def P__ptau(lks_data,ti,tf,dt):
         #virtual extension of the contact to test for concatenation
         t0 = randint(ti/dt,(tf - c.duration)/dt)*dt
         t1 = t0 + c.duration
-        loc_c = range(t0-dt,t1+dt,dt) #extended list of activation times
+        loc_c = list(range(t0-dt,t1+dt,dt)) #extended list of activation times
         #test for overlapping
         if lk in Tl:
             test = np.array([t in Tl[lk] for t in loc_c])
@@ -94,7 +99,7 @@ def P__ptau(lks_data,ti,tf,dt):
                 #virtual extension of the contact to test for concatenation
                 t0 = randint(ti/dt,(tf - c.duration)/dt)*dt
                 t1 = t0 + c.duration
-                loc_c = range(t0-dt,t1+dt,dt) #extended list of activation times
+                loc_c = list(range(t0-dt,t1+dt,dt)) #extended list of activation times
                 if lk in Tl:
                     test = np.array([t in Tl[lk] for t in loc_c])
                 else:
@@ -169,7 +174,7 @@ def P__k_pTheta(lks_data):
     list_timeline = [[c.display() for c in lks_data.data[lk]] for lk in list_links]
     #extraction of degrees and node list
     deg = tnm.degrees(list_links)
-    nodes = deg.keys()
+    nodes = list(deg.keys())
     nodes = sorted(nodes,key=lambda x:deg[x])
     nodes = [n for n in nodes if deg[n] > 0]
     #handling unsolvable finalisation of the reconstruction
@@ -218,7 +223,7 @@ def P__pTheta_sigma_SigmaL(lks_data,group):
     #extraction of the group labels
     group_labels = list(set(group.values()))
     #dictionary of node indices
-    nodes = group.keys()
+    nodes = list(group.keys())
     nN = len(nodes)
     index_node = {nodes[k]:k for k in range(nN)}
     #initialisation of the list of nodes per group
@@ -276,7 +281,7 @@ def P__k_pTheta_sigma_SigmaL(lks_data,group,n_iter=3):
     group_labels = list(set(group.values()))
     nG = len(group_labels)
     #extraction of the nodes
-    nodes = group.keys()
+    nodes = list(group.keys())
     nN = len(nodes)
     #dictionary of node indices
     node_index = {n:nodes.index(n) for n in nodes}
@@ -383,9 +388,9 @@ def P__k_pTheta_sigma_SigmaL(lks_data,group,n_iter=3):
 #  group: dictionary associating each node with its group. Group labels can be of any type.
 def P__G_psigma(group):
     #extraction of the group labels
-    group_labels = group.values()
+    group_labels = list(group.values())
     #random attribution of group labels
-    nodes = group.keys()
+    nodes = list(group.keys())
     nN = len(nodes)
     shuffle(group_labels)
     new_labels = {nodes[i]:group_labels[i] for i in range(nN)}
@@ -427,7 +432,7 @@ def P__w(lks_data,ti,tf,dt):
     weight = tnm.weights(lks_data)
     for lk in lks_data.links():
         w = weight[lk]
-        list_t = sample(range(ti,tf,dt),w)
+        list_t = sample(list(range(ti,tf,dt)),w)
         for t in list_t:
             Output.add_event(t,lk.i,lk.j)
     return Output
@@ -454,7 +459,7 @@ def P__w_t1_tw(lks_data,ti,tf,dt):
             Output.add_event(tw,lk.i,lk.j)
         #adding other events
         if w > 2:
-            list_t = sample(range(t1+1,tw,dt),w-2)
+            list_t = sample(list(range(t1+1,tw,dt)),w-2)
             for t in list_t:
                 Output.add_event(t,lk.i,lk.j)
     return Output
@@ -474,7 +479,7 @@ def P__L_ptau(lks_data,ti,tf,dt):
     #links extraction
     list_lk = list(lks_data.links())
     #contacts extraction with time stamps
-    list_c = list(it.chain(*lks_data.data.values()))
+    list_c = list(it.chain(*list(lks_data.data.values())))
     #contacts redistribution
     Output = link_timeline(lks_data.links_display())
     Tl = {lk:[] for lk in list_lk}
@@ -484,14 +489,14 @@ def P__L_ptau(lks_data,ti,tf,dt):
         #virtual extension of the contact to test for concatenation
         t0 = randint(ti/dt,(tf - c.duration)/dt)*dt
         t1 = t0 + c.duration
-        loc_c = range(t0-dt,t1+dt,dt) #extended list of activation times
+        loc_c = list(range(t0-dt,t1+dt,dt)) #extended list of activation times
         #test for overlapping
         test = np.array([t in Tl[lk] for t in loc_c])
         while test.any(): 
             lk = choice(list_lk)
             t0 = randint(ti/dt,(tf - c.duration)/dt)*dt
             t1 = t0 + c.duration
-            loc_c = range(t0-dt,t1+dt,dt) #extended list of activation times
+            loc_c = list(range(t0-dt,t1+dt,dt)) #extended list of activation times
             test = np.array([t in Tl[lk] for t in loc_c])
         Output.add_contact(lk.i,lk.j,t0,c.duration)
         Tl[lk] += loc_c
@@ -694,7 +699,7 @@ def P__tau_dtau(lks_data,ti,tf,dt):
 #  seq_data (snapshot_sequence())
 def P__t(seq_data):
     #construction of the new snapshot_sequence
-    list_time = seq_data.data.keys()
+    list_time = list(seq_data.data.keys())
     list_time.sort()
     t_i = list_time[0]
     t_f = list_time[-1]
@@ -722,7 +727,7 @@ def P__t(seq_data):
 #  seq_data (snapshot_sequence())
 def P__t_Phi(seq_data):
     #construction of the new snapshot_sequence
-    list_time = seq_data.data.keys()
+    list_time = list(seq_data.data.keys())
     list_time.sort()
     t_i = list_time[0]
     t_f = list_time[-1]
@@ -757,7 +762,7 @@ def P__d(seq_data,link_threshold=20,n_iter=5):
         if len(list_link) >= link_threshold:
             #extraction of degrees and node list
             deg = degrees(list_link)
-            nodes = deg.keys()
+            nodes = list(deg.keys())
             nodes = sorted(nodes,key=lambda x:deg[x])
             nodes = [n for n in nodes if deg[n] > 0]
             list_lk = []
@@ -812,7 +817,7 @@ def P__d(seq_data,link_threshold=20,n_iter=5):
 #  seq_data (snapshot_sequence())
 def P__isoGamma(seq_data):
     #construction of the new snapshot_sequence
-    list_time = seq_data.data.keys()
+    list_time = list(seq_data.data.keys())
     list_time.sort()
     t_i = list_time[0]
     t_f = list_time[-1]
@@ -843,7 +848,7 @@ def P__isoGamma(seq_data):
 #  seq_data (snapshot_sequence())
 def P__isoGamma_Phi(seq_data):
     #construction of the new snapshot_sequence
-    list_time = seq_data.data.keys()
+    list_time = list(seq_data.data.keys())
     list_time.sort()
     t_i = list_time[0]
     t_f = list_time[-1]
@@ -877,7 +882,7 @@ def P__pttau(lks_data,dt):
     nN = len(nodes)
     index_node = {nodes[k]:k for k in range(nN)}
     #contacts extraction with time stamps
-    list_c = list(it.chain(*lks_data.data.values()))
+    list_c = list(it.chain(*list(lks_data.data.values())))
     #contacts redistribution
     Output = link_timeline()
     Tl = {}
@@ -888,7 +893,7 @@ def P__pttau(lks_data,dt):
         #virtual extension of the contact to test for concatenation
         ti = c.time
         tf = c.time + c.duration
-        loc_c = range(ti-dt,tf+dt,dt) #extended list of activation times
+        loc_c = list(range(ti-dt,tf+dt,dt)) #extended list of activation times
         #test for overlapping
         if lk in Tl:
             test = np.array([t in Tl[lk] for t in loc_c])
@@ -897,7 +902,7 @@ def P__pttau(lks_data,dt):
                 lk = link(n,p)
                 ti = c.time
                 tf = c.time + c.duration
-                loc_c = range(ti-dt,tf+dt,dt) #extended list of activation times
+                loc_c = list(range(ti-dt,tf+dt,dt)) #extended list of activation times
                 if lk in Tl:
                     test = np.array([t in Tl[lk] for t in loc_c])
                 else:
@@ -923,7 +928,7 @@ def P__pttau(lks_data,dt):
 #  seq_data (snapshot_sequence())
 def P__pGamma(seq_data):
     #extraction of snapshot_sequence caracteristics
-    list_time = seq_data.data.keys()
+    list_time = list(seq_data.data.keys())
     list_time.sort()
     t_i = list_time[0]
     t_f = list_time[-1]
@@ -936,7 +941,7 @@ def P__pGamma(seq_data):
         if list_link != []:
             list_S.append(list_link)
     #definition of the new time steps
-    list_t = sample(range(t_i,t_f,dt),len(list_S))
+    list_t = sample(list(range(t_i,t_f,dt)),len(list_S))
     #reconstruction
     Output = snapshot_sequence(t_i,t_f,dt)
     for t in list_t:
@@ -948,7 +953,7 @@ def P__pGamma(seq_data):
 #  seq_data (snapshot_sequence())
 def P__pGamma_sgnA(seq_data):
     #extraction of snapshot_sequence caracteristics
-    list_time = seq_data.data.keys()
+    list_time = list(seq_data.data.keys())
     list_time.sort()
     t_i = list_time[0]
     t_f = list_time[-1]
@@ -987,7 +992,7 @@ def P__L_t(lks_data,dt):
         for c in lks_data.data[lk]:
             ti = c.time
             tf = c.time + c.duration
-            list_t += range(ti,tf,dt)
+            list_t += list(range(ti,tf,dt))
     #events redistribution
     Output = tij()
     for lk in list_lk:
@@ -1013,7 +1018,7 @@ def P__w_t(lks_data,dt):
         for c in lks_data.data[lk]:
             ti = c.time
             tf = c.time + c.duration
-            list_t += range(ti,tf,dt)
+            list_t += list(range(ti,tf,dt))
     #events redistribution
     Output = tij()
     for lk in list_lk:
@@ -1032,7 +1037,7 @@ def P__L_pttau(lks_data,dt):
     #links extraction
     list_lk = list(lks_data.links())
     #contacts extraction with time stamps
-    list_c = list(it.chain(*lks_data.data.values()))
+    list_c = list(it.chain(*list(lks_data.data.values())))
     #contacts redistribution
     Output = link_timeline(lks_data.links_display())
     Tl = {lk:[] for lk in list_lk}
@@ -1041,14 +1046,14 @@ def P__L_pttau(lks_data,dt):
         #virtual extension of the contact to test for concatenation
         ti = c.time
         tf = c.time + c.duration
-        loc_c = range(ti-dt,tf+dt,dt) #extended list of activation times
+        loc_c = list(range(ti-dt,tf+dt,dt)) #extended list of activation times
         #test for overlapping
         test = np.array([t in Tl[lk] for t in loc_c])
         while test.any():
             lk = choice(list_lk)
             ti = c.time
             tf = c.time + c.duration
-            loc_c = range(ti-dt,tf+dt,dt) #extended list of activation times
+            loc_c = list(range(ti-dt,tf+dt,dt)) #extended list of activation times
             test = np.array([t in Tl[lk] for t in loc_c])
         Output.add_contact(lk.i,lk.j,c.time,c.duration)
         Tl[lk] += loc_c
@@ -1067,7 +1072,7 @@ def P__n_pttau(lks_data,dt):
     #link ordering by number of contact
     list_lk = sorted(lks_data.links(),key=lambda x:num[x],reverse=True)
     #contacts extraction
-    list_c = list(it.chain(*lks_data.data.values()))
+    list_c = list(it.chain(*list(lks_data.data.values())))
     #contacts redistribution
     Output = link_timeline()
     for lk in list_lk:
@@ -1078,7 +1083,7 @@ def P__n_pttau(lks_data,dt):
         c = choice(list_c)
         ti = c.time
         tf = c.time + c.duration
-        loc_c = range(ti-dt,tf+dt,dt) #extended list of activation times
+        loc_c = list(range(ti-dt,tf+dt,dt)) #extended list of activation times
         list_c.remove(c)
         Tl.append(c.display())
         testlist_t = loc_c[:] #test list for overlapping
@@ -1086,14 +1091,14 @@ def P__n_pttau(lks_data,dt):
             c = choice(list_c)
             ti = c.time
             tf = c.time + c.duration
-            loc_c = range(ti-dt,tf+dt,dt)
+            loc_c = list(range(ti-dt,tf+dt,dt))
             #test for overlapping and concatenation
             test = testlist_t + loc_c
             while len(test) > len(list(set(test))):
                 c = choice(list_c)
                 ti = c.time
                 tf = c.time + c.duration
-                loc_c = range(ti-dt,tf+dt,dt)
+                loc_c = list(range(ti-dt,tf+dt,dt))
                 test = testlist_t + loc_c
             #adding the contact
             testlist_t += loc_c

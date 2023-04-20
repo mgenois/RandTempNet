@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #------------------------------------------
-#-        Temporal Networks v1.0          -
+#-        Temporal Networks v2.0          -
 #-           by Mathieu GÉNOIS            -
 #-       genois.mathieu@gmail.com         -
+#-  adapted in python3 by Thomas Robiglio -
+#-       robigliothomas@gmail.com         -
 #------------------------------------------
 #Python module for handling temporal networks
 #------------------------------------------
@@ -121,25 +123,25 @@ def count_flows(lEdges,Flow_out,Flow_in,Cons,Lost,Gain,check=False):
             #first day
             if d == 0:
                 if nE[d] != nFlow_out[d] + nLost[d] + nCons[d]:
-                    print "Error count out (Day %d): %d != %d + %d + %d" % (d,nE[d],nFlow_out[d],nLost[d],nCons[d])
+                    print("Error count out (Day %d): %d != %d + %d + %d" % (d,nE[d],nFlow_out[d],nLost[d],nCons[d]))
                 else:
-                    print "Count out (Day %d): OK" % d
+                    print("Count out (Day %d): OK" % d)
             #last day
             elif d == nD-1:
                 if nE[d] != nFlow_in[d] + nGain[d] + nCons[d-1]:
-                    print "Error count in (Day %d): %d != %d + %d + %d" % (d,nE[d],nFlow_in[d],nGain[d],nCons[d-1])
+                    print("Error count in (Day %d): %d != %d + %d + %d" % (d,nE[d],nFlow_in[d],nGain[d],nCons[d-1]))
                 else:
-                    print "Count in (Day %d): OK" % d
+                    print("Count in (Day %d): OK" % d)
             #other days
             else:
                 if nE[d] != nFlow_out[d] + nLost[d] + nCons[d]:
-                    print "Error count out (Day %d): %d != %d + %d + %d" % (d,nE[d],nFlow_out[d],nLost[d],nCons[d])
+                    print("Error count out (Day %d): %d != %d + %d + %d" % (d,nE[d],nFlow_out[d],nLost[d],nCons[d]))
                 else:
-                    print "Count out (Day %d): OK" % d
+                    print("Count out (Day %d): OK" % d)
                 if nE[d] != nFlow_in[d] + nGain[d] + nCons[d-1]:
-                    print "Error count in (Day %d): %d != %d + %d + %d" % (d,nE[d],nFlow_in[d],nGain[d],nCons[d-1])
+                    print("Error count in (Day %d): %d != %d + %d + %d" % (d,nE[d],nFlow_in[d],nGain[d],nCons[d-1]))
                 else:
-                    print "Count in (Day %d): OK" % d
+                    print("Count in (Day %d): OK" % d)
     return (nE,nFlow_out,nFlow_in,nCons,nLost,nGain)
 #------------------------------------------
 #------------------------------------------
@@ -263,7 +265,7 @@ def plot_flows(nE,nFlow_out,nFlow_in,nCons,nLost,nGain):
                 (Path.CURVE4,(x+lx,zo)),
                 (Path.CLOSEPOLY,(x+lx,zo))
             ]
-            codes, verts = zip(*path_data)
+            codes, verts = list(zip(*path_data))
             q = path.Path(verts,codes)
             p = patches.PathPatch(
                 q,
@@ -400,7 +402,7 @@ def flow_probability(lGraph,lFlow_out,lFlow_in,lCons,lLost,lGain):
         #extraction of the edges weights
         G = lGraph[d]
         dW = nx.get_edge_attributes(G,'w')
-        lW = dW.values()
+        lW = list(dW.values())
         lE = G.edges()
         #binning of the links
         min_val = np.log2(min(lW))
